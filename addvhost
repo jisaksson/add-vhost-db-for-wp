@@ -1,0 +1,109 @@
+#!/bin/bash
+
+shopt -s nullglob
+
+# permissions
+if [ "$(whoami)" != "root" ]; then
+	echo "Root privileges are required to run this, try running with sudo..."
+	exit 2
+fi
+
+current_directory="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+hosts_path="/private/etc/hosts"
+vhost_path="/Applications/XAMPP/xamppfiles/etc/conf.d/"
+# vhosts_path="/Applications/XAMPP/xamppfiles/etc/extra/httpd-vhost.conf""
+vhost_skeleton_path="/Applications/XAMPP/htdocs/vhost.skeleton.conf"
+web_root="/Applications/XAMPP/htdocs/vh/"
+
+
+# user input passed as options?
+site_url=0
+relative_doc_root=0
+multi=0
+
+while getopts ":u:d:m:" o; do
+	case "${o}" in
+		u)
+			site_url=${OPTARG}
+			;;
+		d)
+			relative_doc_root=${OPTARG}
+			;;
+		m)
+			multi=${OPTARG}
+	esac
+done
+
+# prompt if not passed as options
+if [ $site_url == 0 ]; then
+	read -p "Please enter the desired URL (tld .test will be added automatically): " site_url
+fi
+
+if [ $relative_doc_root == 0 ]; then
+	read -p "Please enter the site path relative to the web root (where WP installation is): $web_root" relative_doc_root
+fi
+
+if [ $multi == 0 ]; then
+	read -p "How many additional urls? " multi
+fi
+
+# construct absolute path
+absolute_doc_root=$web_root$relative_doc_root"/wordpress/"
+db=$site_url
+site_url="$site_url.test"
+
+# create directory if it doesn't exists
+if [ ! -d "$absolute_doc_root" ]; then
+
+	# create directory
+	mkdir "$absolute_doc_root/"
+
+	echo "Created directory $absolute_doc_root/"
+fi
+
+# update vhost
+
+vhost=`cat "$vhost_skeleton_path"`
+vhost=${vhost//@site_url@/$site_url}
+vhost=${vhost//@site_docroot@/$absolute_doc_root}
+touch $vhost_path$site_url.conf
+echo "$vhost" >> "$vhosts_path$site_url.conf"
+
+if [[ ! $multi < 1 ]]; then
+	x=1
+	while [ $x -le $multi ]
+	do
+		read -p "Enter next url: " next
+		vhost=`cat "$vhost_skeleton_path"`
+		vhost=${vhost//@site_url@/$next}
+		vhost=${vhost//@site_docroot@/$absolute_doc_root}
+		echo "$vhost" >> "$vhosts_path$site_url.conf"
+		echo "127.0.0.1     $site_url www.$site_url" >> $hosts_path
+		x=$(( $x + 1 ))
+	done
+fi
+
+echo "Updated vhosts in Apache config"..
+
+# update hosts file
+echo "127.0.0.1      $site_url www.$site_url" >> $hosts_path
+echo "Updated the hosts file"..
+
+mysql -uroot -e "CREATE DATABASE $db"
+echo "Created database $db.."
+
+dbfiles=(*.sql)
+echo "File: " $dbfiles
+echo -n "Is this the right db file (y/n)? "
+read answer
+if echo "$answer" | grep -iq "y" ;then
+    mysql -uroot $db < $dbfiles
+else
+    echo "Importtaa ite sitten!"
+fi
+
+sudo /Applications/XAMPP/xamppfiles/xampp reloadapache
+
+echo "Process complete, check out the new site at http://$site_url"
+
+exit 0
