@@ -89,7 +89,7 @@ echo "Updated vhosts in Apache config"..
 echo "127.0.0.1      $site_url www.$site_url" >> $hosts_path
 echo "Updated the hosts file"..
 
-mysql -uroot -e "CREATE DATABASE $db"
+mysql -uusername -e "CREATE DATABASE $db"
 echo "Created database $db.."
 
 dbfiles=(*.sql)
@@ -99,7 +99,7 @@ read answer
 if echo "$answer" | grep -iq "y" ;then
     mysql -uroot $db < $dbfiles
 else
-    echo "Importtaa ite sitten!"
+    echo "Couldn't import db"
 fi
 
 sudo /Applications/XAMPP/xamppfiles/xampp reloadapache
